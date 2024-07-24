@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StopWatch</title>
+    <style>
+        *{
+            padding: 0;
+            margin: 0;
+            box-sizing: border-box;
+        }
+        body{background-color: rgb(20, 20, 20);}
+        .panel{
+            position: fixed;
+            inset: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .container{
+            background-color: white;
+            box-shadow: 0 0 6px 2px rgba(255, 255, 255, 0.445);
+            width: 30%;
+        }
+        .time{
+            padding-top: 8px;
+            font-size: 38px;
+            text-align: center;
+        }
+
+        .laps-container{
+            border-top: 0.5px solid rgb(216, 216, 216);
+            background-color: whitesmoke;
+            padding-block: 8px;
+            padding-inline: 32px;
+            font-size: 17px;
+            height: 177px;
+            max-height: 177px;
+            overflow-y: scroll;
+        }
+
+        .lapItem{
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            margin-bottom: 10px;
+        }
+
+        .lap-id{color: rgb(12, 139, 224);}
+
+        .lap-time{color: grey;}
+
+        .elapsed-time{
+            font-size: 19px;
+            text-align: end;
+        }
+
+        .actions{display: flex;}
+
+        button{
+            font-size: 16px;
+            color: white;
+            height: 40px;
+            border: none;
+            background-color: rgb(0, 189, 0);
+            flex: 1;
+        }
+        button.second{display: none;}
+        .second.active{display: block;}
+
+        button.second{background-color: rgb(19, 108, 192);}
+
+        button.stop{background-color: rgb(185, 6, 6);}
+
+        button:hover{
+            cursor: pointer;
+            opacity: 0.9;
+        }
+    </style>
+</head>
+<body>
+    <div class="panel">
+        <div class="container">
+            <p class="js-time time">00: 00.0</p>
+            <div class="js-laps laps-container"></div>
+            <div class="js-actions actions">
+                <button class="start" onclick="startTimer()">START</button>
+                <button class="second">LAP</button>
+            </div>
+        </div>
+    </div>
+    <script>
+        let milli = 0;
+        let sec = 0;
+        let min = 0;
+        const timeElem = document.querySelector('.js-time');
+        const toggleElem = document.querySelector('.start');
+        const lapButton = document.querySelector('.second');
+        const lapsDisplay = document.querySelector('.js-laps');
+        const resetButton = document.querySelector('.reset');
+        let isStarted = false;
+        let intervalID;
+
+        let laps = [];
+        const previousLap = {
+            mins: 0,
+            secs: 0,
+            millis: 0
+        }
+
+        lapButton.addEventListener('click', addLap);
+
+        function createdFormatted(min, sec, milli) {
+            const values = [min, sec, milli];
+            const formattedValues = values.map(value => {
+                if(value < 10){
+                    return `0${value}`;
+                }
+                return `${value}`;
+            });
+            return `${formattedValues[0]}: ${formattedValues[1]}.${formattedValues[2]}`;
+        }
+
+        function show() {
+            const text = createdFormatted(min, sec, milli);
+            timeElem.innerHTML = text;
+        }
+
+        function startTimer() {
+            if (!isStarted) {
+                if (intervalID) {
+                    lapButton.innerHTML = 'LAP';
+                    lapButton.removeEventListener('click', reset);
+                    lapButton.addEventListener('click', addLap);
+                }
+                intervalID = setInterval(() => {
+                    milli += 1;
+                    if (milli > 90) {
+                        milli = 0;
+                        sec++;
+                        if (sec > 59) {
+                            sec = 0;
+                            min++;
+                        }
+                    }
+                    show();
+                }, 10);
+                toggleElem.className = 'stop';
+                toggleElem.innerHTML = 'STOP';
+                lapButton.classList.add('active');
+            }else{
+                clearInterval(intervalID);
+                toggleElem.className = 'start';
+                toggleElem.innerHTML = 'START';
+                if (intervalID) {
+                    toggleElem.innerHTML = 'RESUME';
+                    lapButton.innerHTML = 'RESET';
+                    lapButton.removeEventListener('click', addLap);
+                    lapButton.addEventListener('click', reset);
+                }
+            }
+            isStarted = !isStarted;
+        }
+
+        function addLap() {
+            const timeInTiers = (min * 6000) + (sec * 100) + milli;
+            const previousInTiers = (previousLap.mins * 6000) + (previousLap.secs * 100) + previousLap.millis
+            const elapsed = timeInTiers - previousInTiers;
+            let newMin = 0;
+            let newSec = 0;
+            let newMilli = 0;
+            for (let i = 0; i < elapsed; i++) {
+                newMilli++;
+                if (newMilli > 99) {
+                    newSec++;
+                    newMilli = 0;
+                    if (newSec > 59) {
+                        newSec = 0;
+                        newMin++;
+                    }
+                }
+            }
+            previousLap.mins = min;
+            previousLap.secs = sec;
+            previousLap.millis = milli;
+
+            const formattedTime = createdFormatted(min, sec, milli);
+            const previousFormatted = createdFormatted(newMin, newSec, newMilli);
+            let display = '';
+            laps.unshift(
+                {
+                    id: laps.length+1,
+                    time: formattedTime,
+                    elapsed: previousFormatted
+                }
+            );
+            laps.forEach((item, i)=>{
+                display += `
+                    <div class="lapItem">
+                        <p class="lap-id">0${item.id}</p>
+                        <p class="lap-time">${item.time}</p>
+                        <p class="elapsed-time">${item.elapsed}</p>
+                    </div>
+                `;
+            })
+            lapsDisplay.innerHTML = display;
+        }
+
+        function reset() {
+            previousLap.millis = 0;
+            previousLap.secs = 0;
+            previousLap.mins = 0;
+            lapButton.classList.remove('active');
+            toggleElem.innerHTML = 'START';
+            lapButton.innerHTML = 'LAP';
+            lapButton.removeEventListener('click', reset);
+            lapButton.addEventListener('click', addLap);
+            min = 0; sec = 0; milli = 0;
+            laps = [];
+            lapsDisplay.innerHTML = '';
+            show();
+        }
+    </script>
+</body>
+</html>
